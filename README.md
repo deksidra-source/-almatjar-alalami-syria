@@ -6,10 +6,7 @@
 
 | المسار | الوظيفة |
 |---|---|
-| `index.html` و`styles.css` و`app.js` | واجهة المشتري، البحث، الفلاتر، السلة، الدردشة، الحساب، وطلب الإعلان المروّج |
-| `store.html` | مساحة المتجر الصغير وإدارة المنتج والكود والسعر والمخزون |
-| `large-store.html` | مساحة المتجر الكبير وطلبات العرض للآليات والطلبات bulk |
-| `admin.html` | الهيكل الأولي للوحة الإدارة ومراجعة الإعلانات المروّجة |
+| `frontend/` | واجهة المشتري والمتجر الصغير والمتجر الكبير ولوحة الإدارة وملفات CSS وJavaScript |
 | `backend/` | خدمة Node.js، اتصال PostgreSQL، ترحيل المخطط، مسارات API والاختبارات |
 | `mobile/` | تطبيق Flutter المستقل للمشتري والمتجر والترويج والحساب |
 | `docs/` | الشروط والامتثال ومخطط قاعدة البيانات ودليل التشغيل وحدود الاستقلال |
@@ -23,6 +20,7 @@
 من مجلد المشروع:
 
 ```bash
+cd frontend
 python3 -m http.server 4173
 ```
 
@@ -49,8 +47,8 @@ curl http://localhost:4000/health
 ## اختبار المشروع
 
 ```bash
-node --check app.js
-node smoke-test.mjs
+node --check frontend/app.js
+node backend/test/smoke-test.mjs
 node --test backend/test/contracts.test.mjs
 ```
 
@@ -63,7 +61,7 @@ flutter pub get
 flutter run --dart-define=API_BASE_URL=http://10.0.2.2:4000
 ```
 
-تعليمات بناء Android وiPhone موجودة في `mobile/BUILD_GUIDE_AR.md`. بناء iPhone وتوقيعه يحتاجان macOS وXcode وحساب Apple Developer.
+بناء iPhone وتوقيعه يحتاجان macOS وXcode وحساب Apple Developer.
 
 ## ما لا يجب رفعه إلى GitHub
 
