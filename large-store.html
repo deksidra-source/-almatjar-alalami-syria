@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>المتجر الكبير | المتجر العالمي سوريا</title>
+    <link href="https://fonts.googleapis.com/css2?family=Aref+Ruqaa+Ink:wght@400;700&family=Noto+Kufi+Arabic:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body class="subpage-body">
+    <header class="topbar"><a class="brand" href="index.html"><span class="brand-mark">م</span><span class="brand-copy"><strong>المتجر العالمي</strong><small>سوريا</small></span></a><a class="account-link" href="index.html#account">الحساب</a></header>
+    <main class="subpage-main section-shell">
+      <a class="back-link" href="index.html">← العودة إلى الرئيسية</a>
+      <section class="page-intro curved-panel"><span class="eyebrow">المتجر الكبير</span><h1>اطلب عرض سعر<br /><span>للمشاريع والآليات.</span></h1><p>اكتب احتياجك بالتفصيل ليتم ربطه بالتاجر المناسب عند اكتمال الحسابات والمخزون. السعر والشحن والجمارك تبقى بنودًا منفصلة وواضحة.</p></section>
+      <section class="rfq-layout">
+        <form class="curved-panel form-panel" id="rfq-form">
+          <div class="section-heading"><div><span class="eyebrow">طلب عرض سعر</span><h2>تفاصيل الاحتياج</h2></div><span class="status-pill">مسودة محلية</span></div>
+          <label>نوع الطلب<select id="rfq-category" required><option value="">اختر القسم</option><option>سيارات</option><option>آليات ثقيلة</option><option>قطع خشب</option><option>طباعة صناعية</option></select></label>
+          <label>وصف تفصيلي<textarea id="rfq-description" rows="5" required placeholder="اذكر المواصفات، القياس، الحالة، الكمية أو أي شرط مهم."></textarea></label>
+          <div class="form-two-col"><label>الكمية<input id="rfq-quantity" type="number" min="1" placeholder="مثال: 1" /></label><label>محافظة التسليم<select id="rfq-province"><option>اختر المحافظة</option><option>دمشق</option><option>ريف دمشق</option><option>حلب</option><option>حمص</option><option>حماة</option><option>اللاذقية</option><option>طرطوس</option><option>إدلب</option><option>دير الزور</option><option>الرقة</option><option>الحسكة</option><option>درعا</option><option>السويداء</option><option>القنيطرة</option></select></label></div>
+          <label>مسار الشحن<select id="rfq-shipping"><option>محلي</option><option>من تركيا</option><option>من الصين</option><option>أحتاج مساعدة من مكتب شحن</option></select></label>
+          <div class="form-actions"><button class="primary-button" type="submit">حفظ مسودة الطلب</button><button class="text-button" id="rfq-clear" type="button">مسح المسودة</button></div>
+          <p class="form-disclaimer">لا يتم إرسال الطلب حاليًا. الحفظ محلي في هذا المتصفح فقط إلى أن تُربط المصادقة والطلبات بالخادم.</p>
+        </form>
+        <aside class="curved-panel invoice-preview"><span class="eyebrow">الفاتورة الشفافة</span><h2>التكاليف منفصلة</h2><div class="invoice-line"><span>سعر المنتج</span><strong>يحدده التاجر</strong></div><div class="invoice-line"><span>الشحن والجمارك</span><strong>تحدد لاحقًا</strong></div><div class="invoice-line"><span>الرسم التقني</span><strong>غير مفعّل</strong></div><div class="invoice-total"><span>الإجمالي</span><strong>بعد وصول العرض</strong></div><p>المتجر العالمي سوريا وسيط تقني. لا تتحمل المنصة مسؤولية الشحن أو الجمارك أو مطابقة المنتج.</p></aside>
+      </section>
+    </main>
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <script>
+      const toast = document.querySelector('#toast');
+      let toastTimer;
+      const showToast = (message) => { toast.textContent = message; toast.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => toast.classList.remove('show'), 2600); };
+      const fields = ['rfq-category','rfq-description','rfq-quantity','rfq-province','rfq-shipping'];
+      const saved = JSON.parse(localStorage.getItem('almatjar-rfq-draft') || 'null');
+      if (saved) fields.forEach((id) => { const el = document.getElementById(id); if (el && saved[id] !== undefined) el.value = saved[id]; });
+      document.querySelector('#rfq-form').addEventListener('submit', (event) => { event.preventDefault(); const draft = Object.fromEntries(fields.map((id) => [id, document.getElementById(id).value])); localStorage.setItem('almatjar-rfq-draft', JSON.stringify(draft)); showToast('تم حفظ مسودة طلب عرض السعر محليًا. لن تُرسل قبل ربط الحسابات.'); });
+      document.querySelector('#rfq-clear').addEventListener('click', () => { localStorage.removeItem('almatjar-rfq-draft'); document.querySelector('#rfq-form').reset(); showToast('تم مسح المسودة من هذا المتصفح.'); });
+    </script>
+  </body>
+</html>

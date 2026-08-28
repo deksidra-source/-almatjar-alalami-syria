@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>المتجر العالمي سوريا</title>
+    <meta name="description" content="منصة المتجر العالمي سوريا متعددة البائعين." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Aref+Ruqaa+Ink:wght@400;700&family=Noto+Kufi+Arabic:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <button class="menu-button" id="drawer-toggle" type="button" aria-label="فتح القائمة" aria-expanded="false">☰</button>
+      <a class="brand" href="#home" aria-label="المتجر العالمي سوريا">
+        <span class="brand-mark">م</span>
+        <span class="brand-copy"><strong>المتجر العالمي</strong><small>سوريا</small></span>
+      </a>
+      <nav class="desktop-nav" aria-label="التنقل الرئيسي">
+        <a class="active" href="#home">المشتري</a>
+        <a href="store.html">غرفة المتجر الصغير</a>
+        <a href="large-store.html">غرفة المتجر الكبير</a>
+        <a class="admin-nav-link" href="admin.html">غرفة المدير</a>
+      </nav>
+      <div class="top-actions">
+        <button class="icon-button" type="button" aria-label="البحث">⌕</button>
+        <a class="account-link" href="#account">تسجيل الدخول</a>
+      </div>
+    </header>
+
+    <div class="drawer-backdrop" id="drawer-backdrop" hidden></div>
+    <aside class="side-drawer" id="side-drawer" aria-label="قائمة المتجر" aria-hidden="true">
+      <div class="drawer-heading"><strong>المتجر العالمي سوريا</strong><button class="drawer-close" id="drawer-close" type="button" aria-label="إغلاق القائمة">×</button></div>
+      <nav class="drawer-nav">
+        <a href="#categories">الأقسام</a>
+        <a href="store.html">غرفة المتجر الصغير</a>
+        <a href="large-store.html">غرفة المتجر الكبير</a>
+        <a href="admin.html">غرفة المدير</a>
+        <a href="#cart">السلة والطلبات</a>
+        <a href="#chat">الدردشة والمساعد الذكي</a>
+        <a href="#account">الحساب والإعدادات</a>
+      </nav>
+      <div class="drawer-note"><strong>التاجر الخارجي</strong><span>مؤجل وغير ظاهر حتى اعتماد التكامل والصلاحيات.</span></div>
+    </aside>
+
+    <main id="home">
+      <section class="hero section-shell">
+        <div class="hero-copy">
+          <span class="eyebrow">تسوق من سوريا، إلى سوريا</span>
+          <h1>كل ما تحتاجه<br /><span>في مكان واحد.</span></h1>
+          <p>منصة حديثة تجمع المشتري والمتاجر السورية، مع تفاصيل واضحة للمنتج والشحن وخيارات الطلب.</p>
+          <form class="search-box" id="search-form">
+            <span class="search-icon">⌕</span>
+            <input id="search-input" type="search" placeholder="ماذا تبحث اليوم؟" aria-label="ابحث عن منتج" />
+            <button class="primary-button" type="submit">ابحث الآن</button>
+          </form>
+          <div class="search-filters" aria-label="تصفية البحث"><label><span>المحافظة</span><select id="province-filter"><option>كل المحافظات</option><option>دمشق</option><option>ريف دمشق</option><option>حلب</option><option>حمص</option><option>حماة</option><option>اللاذقية</option><option>طرطوس</option><option>إدلب</option><option>دير الزور</option><option>الرقة</option><option>الحسكة</option><option>درعا</option><option>السويداء</option><option>القنيطرة</option></select></label><label><span>الشحن</span><select id="shipping-filter"><option>كل الخيارات</option><option>محلي</option><option>من تركيا</option><option>من الصين</option></select></label></div>
+          <div class="quick-links" aria-label="فئات سريعة">
+            <a href="#categories">غذائيات</a><a href="#categories">ملابس</a><a href="#categories">ألعاب</a><a href="#categories">إلكترونيات</a>
+          </div>
+        </div>
+        <div class="hero-art" aria-hidden="true">
+          <div class="sun-disc"></div>
+          <div class="arch-card arch-back"></div>
+          <div class="arch-card arch-front"><span class="arch-label">سوقنا</span><div class="arch-basket">✦</div><span class="arch-note">تجربة شراء واضحة</span></div>
+          <span class="floating-tag tag-one">شحن واضح</span><span class="floating-tag tag-two">متاجر موثوقة</span>
+        </div>
+      </section>
+
+      <section class="switcher section-shell" aria-labelledby="switcher-title">
+        <div class="section-heading"><div><span class="eyebrow">مساحتك داخل المنصة</span><h2 id="switcher-title">اختر طريقة الاستخدام</h2></div><span class="status-pill">النسخة الأولى</span></div>
+        <div class="role-grid">
+          <button class="role-card selected" type="button" data-role="buyer"><span class="role-icon">⌂</span><span><strong>قسم المشتري</strong><small>تصفح، اطلب، وتابع طلبك</small></span><i>←</i></button>
+          <a class="role-card role-link" href="store.html"><span class="role-icon">▦</span><span><strong>غرفة المتجر الصغير</strong><small>إدارة المنتجات والأكواد والمخزون</small></span><i>←</i></a>
+          <a class="role-card role-link" href="large-store.html"><span class="role-icon">▤</span><span><strong>غرفة المتجر الكبير</strong><small>طلبات العرض والآليات والمشاريع</small></span><i>←</i></a>
+          <a class="role-card role-link admin-role" href="admin.html"><span class="role-icon">⌘</span><span><strong>غرفة المدير</strong><small>المراجعة والاشتراكات والترويج</small></span><i>←</i></a>
+        </div>
+      </section>
+
+      <section class="buyer-panel section-shell" id="categories">
+        <div class="section-heading"><div><span class="eyebrow">تصفح حسب القسم</span><h2>ابدأ من احتياجك</h2></div><a class="text-link" href="#categories">عرض الكل ←</a></div>
+        <div class="category-grid">
+          <a class="category-card grocery" href="#products"><span class="category-illustration">✦</span><strong>الغذائيات</strong><small>منتجات يومية من متاجر محلية</small></a>
+          <a class="category-card fashion" href="#products"><span class="category-illustration">◇</span><strong>الملابس</strong><small>اختيارات تناسب ذوقك</small></a>
+          <a class="category-card games" href="#products"><span class="category-illustration">◈</span><strong>الألعاب</strong><small>وقت ممتع لكل الأعمار</small></a>
+          <a class="category-card tech" href="#products"><span class="category-illustration">▣</span><strong>الإلكترونيات</strong><small>أدوات وتقنيات تحتاجها</small></a>
+        </div>
+      </section>
+
+      <section class="feature-row section-shell" id="products">
+        <div class="feature-card shipping"><span class="feature-icon">⇢</span><div><strong>تكلفة واضحة</strong><p>سعر المنتج والشحن والجمارك تظهر منفصلة قبل تأكيد الطلب.</p></div></div>
+        <div class="feature-card contact"><span class="feature-icon">◌</span><div><strong>تواصل مباشر</strong><p>اسأل المتجر عن المنتج أو الشحن من خلال الدردشة الآمنة.</p></div></div>
+        <div class="feature-card track"><span class="feature-icon">✓</span><div><strong>تابع طلبك</strong><p>اعرف حالة طلبك من التجهيز حتى الاستلام.</p></div></div>
+      </section>
+
+      <section class="catalog-preview section-shell" id="catalog">
+        <div class="section-heading"><div><span class="eyebrow">كتالوج موثوق</span><h2>لا نعرض شيئًا قبل اعتماده</h2></div><span class="status-pill">بدون بيانات وهمية</span></div>
+        <div class="catalog-empty"><div class="catalog-empty-icon">⌁</div><div><strong>الكتالوج قيد التجهيز</strong><p>ستظهر المنتجات بعد اعتماد المتاجر وربط المخزون. لا نستخدم منتجات أو تقييمات تجريبية توهم المستخدم بأنها حقيقية.</p></div><button class="secondary-button compact" type="button" data-soon="سيُفتح الكتالوج بعد اعتماد أول متجر وربط قاعدة البيانات.">أبلغني عند الجاهزية</button></div>
+      </section>
+
+      <section class="subscription-panel section-shell" id="subscription">
+        <div><span class="eyebrow">خطة التاجر</span><h2>ابدأ بأربعة أشهر مجانية</h2><p>تجربة مجانية لمدة 4 أشهر، ثم اشتراك بقيمة 20 دولارًا شهريًا بعد الموافقة على الشروط. لا يوجد تحصيل إلكتروني في النموذج التجريبي.</p></div>
+        <div class="subscription-card"><span>بعد التجربة</span><strong>20$ <small>/ شهريًا</small></strong><button class="secondary-button compact" type="button" data-soon="سيُفعّل الاشتراك بعد ربط الحسابات والدفع القانوني.">عرض التفاصيل</button></div>
+      </section>
+
+      <section class="cart-preview section-shell" id="cart">
+        <div class="cart-copy"><span class="eyebrow">سلتك</span><h2>جاهزة لما تختاره</h2><p>أضف المنتجات إلى السلة، وستظهر هنا تفاصيل الطلب والتكاليف بشكل منفصل.</p><button class="secondary-button" type="button" id="cart-button">فتح السلة</button></div>
+        <div class="empty-cart"><span class="cart-symbol">🛒</span><strong>السلة فارغة الآن</strong><small>ابدأ بتصفح الأقسام وإضافة ما يناسبك.</small></div>
+      </section>
+
+      <section class="workspace section-shell" id="workspace" hidden>
+        <div class="section-heading"><div><span class="eyebrow">مساحة التاجر الصغير</span><h2>جهّز متجرك بهدوء</h2></div><span class="status-pill">تجهيز أولي</span></div>
+        <div class="workspace-grid">
+          <div class="workspace-card"><span class="feature-icon">＋</span><strong>إضافة منتج</strong><small>صورة، سعر، كمية، وكود المنتج</small><button class="secondary-button compact" type="button" data-soon="إضافة المنتجات ستتصل بقاعدة البيانات لاحقًا.">ابدأ التجهيز</button></div>
+          <div class="workspace-card"><span class="feature-icon">▤</span><strong>سياسة الشحن</strong><small>حدد الشحن والجمارك على الفاتورة بوضوح</small><button class="secondary-button compact" type="button" data-soon="إعدادات الشحن ستُحفظ بعد ربط حساب المتجر.">إعداد السياسة</button></div>
+          <div class="workspace-card"><span class="feature-icon">▦</span><strong>كتالوجك</strong><small>الغذائيات، الملابس، الألعاب، والإلكترونيات</small><button class="secondary-button compact" type="button" data-soon="الكتالوج سيظهر بعد اعتماد المتجر.">معاينة الكتالوج</button></div>
+        </div>
+      </section>
+
+      <section class="large-workspace section-shell" id="large-workspace" hidden>
+        <div class="section-heading"><div><span class="eyebrow">المتجر الكبير</span><h2>للطلبات الكبيرة، بتفاصيل أكبر.</h2></div><span class="status-pill">معتمد للنسخة الأولى</span></div>
+        <div class="large-grid"><article><span class="large-icon">▤</span><strong>السيارات والآليات</strong><p>مواصفات تفصيلية، حالة المنتج، ومعلومات التواصل مع التاجر.</p></article><article><span class="large-icon">▥</span><strong>قطع الخشب والطباعة</strong><p>طلبات خاصة يمكن وصفها ورفع تفاصيلها قبل التواصل.</p></article><article><span class="large-icon">⇢</span><strong>شحن منفصل</strong><p>يبقى الشحن والجمارك بندًا منفصلًا يحدده التاجر أو شركة الشحن.</p></article></div>
+        <div class="large-note"><strong>جاهز للعرض الداخلي</strong><span>سيظهر الكتالوج الفعلي بعد ربط حسابات التجار والمخزون. التاجر الخارجي وتكامل API غير ظاهرين في هذه المرحلة.</span></div>
+      </section>
+
+      <section class="promotion-panel section-shell" id="promoted-ads">
+        <div class="section-heading"><div><span class="eyebrow">ظهور أقوى لمتجرك</span><h2>اطلب إعلانًا مروّجًا</h2></div><span class="status-pill">مراجعة يدوية</span></div>
+        <div class="promotion-layout">
+          <div class="promotion-copy"><strong>الإعلان المروّج لا يغيّر السعر الأساسي للمنتج</strong><p>يرسل التاجر طلبًا، ثم يراجعه المدير ويتواصل معه للتحصيل اليدوي. لا يتم التفعيل تلقائيًا ولا يتم الدفع الإلكتروني في هذه المرحلة.</p><div class="promotion-rules"><span>✓ قبول أو رفض من الإدارة</span><span>✓ مدة مستقلة: 7 أيام افتراضيًا</span><span>✓ إشعار عند القرار والانتهاء</span></div></div>
+          <form class="promotion-form" id="promotion-form"><label><span>نوع المتجر</span><select id="promotion-store-type"><option value="small">متجر صغير — 1 دولار</option><option value="large">متجر كبير — 10 دولارات</option></select></label><label><span>معرّف المنتج أو العرض</span><input id="promotion-item" type="text" required placeholder="مثال: كود المنتج أو عنوان العرض" /></label><label><span>مدة الترويج بالأيام</span><input id="promotion-duration" type="number" min="1" max="30" value="7" required /></label><fieldset class="payment-options"><legend>طريقة الدفع</legend><label class="payment-option active"><input type="radio" name="promotion-payment" value="manual" checked /><span>الدفع اليدوي</span><small>مفعّل حاليًا</small></label><label class="payment-option disabled"><input type="radio" name="promotion-payment" value="shamcash" disabled /><span>Sham Cash</span><small>قريبًا</small></label><label class="payment-option disabled"><input type="radio" name="promotion-payment" value="icash" disabled /><span>iCash</span><small>قريبًا</small></label></fieldset><div class="promotion-price" aria-live="polite"><span>السعر المرجعي</span><strong id="promotion-price-value">1 دولار</strong></div><button class="primary-button" type="submit">إرسال طلب الترويج</button><small>الدفع اليدوي مفعّل الآن. Sham Cash وiCash ظاهران للتجهيز فقط وسيتم تفعيلهما لاحقًا بعد اعتماد الحسابات والربط القانوني.</small></form>
+        </div>
+      </section>
+
+      <section class="account-panel section-shell" id="account">
+        <div class="account-card"><span class="eyebrow">الحساب</span><h2>حسابك في مكان واحد</h2><p>سجّل الدخول لمتابعة الطلبات، المحادثات، والعناوين. لا يتم إنشاء حساب تجريبي أو بيانات وهمية.</p><label class="consent-row"><input id="legal-consent" type="checkbox" /><span>أوافق على <a href="#legal-note">الشروط وإخلاء المسؤولية</a></span></label><button class="primary-button" id="login-button" type="button" data-soon="سيتم ربط تسجيل الدخول الآمن في المرحلة الخلفية.">تسجيل الدخول</button><button class="text-button" type="button" data-soon="سيُضاف طلب حذف الحساب داخل التطبيق ورابط الويب عند ربط الحسابات.">طلب حذف الحساب</button></div>
+        <div class="tracking-card"><span class="eyebrow">متابعة الطلب</span><h3>لا توجد طلبات بعد</h3><div class="timeline"><span class="done">الطلب</span><span>الشحن</span><span>الجمارك</span><span>التوصيل</span><span>الاستلام</span></div></div>
+      </section>
+
+      <section class="chat-panel section-shell" id="chat">
+        <div><span class="eyebrow">دردشة آمنة</span><h2>تواصل مع المتجر قبل الطلب</h2><p>ستكون المحادثة مرتبطة بالمنتج والطلب، مع حماية بيانات الطرفين.</p></div><button class="secondary-button" type="button" data-soon="الدردشة ستُفعّل بعد ربط الحسابات والطلبات.">ابدأ محادثة</button>
+      </section>
+
+      <section class="chat-room section-shell" id="chat-room">
+        <div class="chat-room-head"><div><span class="eyebrow">المساعد والدردشة</span><h2>اسأل قبل أن تشتري</h2><p>واجهة محادثة شبيهة بتطبيقات الدردشة، لا تعرض رسائل حقيقية قبل تسجيل الدخول وربط المنتج أو الطلب.</p></div><span class="chat-status"><i></i> آمن ومؤجل</span></div>
+        <div class="chat-empty"><span>◌</span><strong>ابدأ محادثتك بعد تسجيل الدخول</strong><small>سيتم حفظ الرسائل ضمن حسابك فقط، مع أدوات الإبلاغ والحظر عند الإطلاق.</small></div>
+        <div class="chat-composer"><input type="text" placeholder="اكتب سؤالك بعد تسجيل الدخول" aria-label="اكتب سؤالك" disabled /><button class="primary-button" type="button" data-soon="سجّل الدخول أولًا لبدء محادثة آمنة.">إرسال</button></div>
+      </section>
+
+      <section class="legal-note section-shell" id="legal-note"><strong>تنبيه مهم</strong><p>المتجر العالمي سوريا وسيط تقني يوفّر المساحة الرقمية فقط. مسؤولية المنتج والشحن والجمارك تقع على التاجر والزبون وفق الشروط التي ستُراجع قانونيًا قبل الإطلاق. <a href="docs/terms-and-conditions-ar.md">قراءة مسودة الشروط والأحكام</a>.</p></section>
+    </main>
+
+    <nav class="bottom-nav" aria-label="تنقل الهاتف"><a class="current" href="#home"><span>⌂</span>الرئيسية</a><a href="#categories"><span>▦</span>الأقسام</a><a class="cart-tab" href="#cart" aria-label="السلة"><span>🛒</span></a><a href="#chat"><span>◌</span>الدردشة</a><a href="#account"><span>♙</span>الحساب</a></nav>
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <script src="app.js"></script>
+  </body>
+</html>
