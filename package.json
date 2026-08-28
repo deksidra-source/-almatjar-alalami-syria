@@ -1,0 +1,20 @@
+{
+  "name": "almatjar-alalami-syria-backend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Independent Node.js backend for Almatjar Alalami Syria",
+  "scripts": {
+    "start": "node src/server.mjs",
+    "dev": "node --watch src/server.mjs",
+    "db:migrate": "node scripts/migrate.mjs",
+    "test": "node --test"
+  },
+  "engines": { "node": ">=20" },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "pg": "^8.13.1"
+  }
+}
