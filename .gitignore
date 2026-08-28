@@ -1,7 +1,14 @@
+# Environment variables
 .env
 .env.*
 !.env.example
+
+# Node modules
 node_modules/
+package-lock.json
+yarn.lock
+
+# Flutter/Dart
 .dart_tool/
 .flutter-plugins
 .flutter-plugins-dependencies
@@ -9,7 +16,43 @@ node_modules/
 .pub-cache/
 build/
 coverage/
+
+# Mobile & security
 *.jks
 *.keystore
 key.properties
+
+# Passwords & Keys (حماية كلمات المرور والمفاتيح)
+*.key
+*.pem
+*.crt
+postgres*
+password*
+secret*
+
+# Database files
+*.sql
+*.sqlite
+*.db
+
+# Sensitive files (ملفات حساسة)
+credentials.json
+tokens.json
+keys.json
+
+# OS files
 .DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Build artifacts
+dist/
+build/
+.next/
+out/
