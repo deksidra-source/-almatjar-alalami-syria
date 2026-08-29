@@ -1,0 +1,13 @@
+{
+  "expo": {
+    "name": "المتجر العالمي سوريا",
+    "slug": "almatjar-alalami-syria",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "scheme": "almatjar",
+    "android": { "package": "sy.almatjar.alalami" },
+    "ios": { "bundleIdentifier": "sy.almatjar.alalami" },
+    "web": { "bundler": "metro" }
+  }
+}

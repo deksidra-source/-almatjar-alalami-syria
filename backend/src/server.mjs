@@ -1,6 +1,7 @@
 import express from "express";
 import cors from "cors";
 import { query } from "./db.mjs";
+import { DELIVERY_MODES, PAYMENT_METHODS, RETURN_REASONS } from "./order-contract.mjs";
 
 const app = express();
 const port = Number(process.env.PORT || 4000);
@@ -76,11 +77,73 @@ app.get("/api/users/:userId/notifications", async (req, res, next) => {
 app.post("/api/orders", async (req, res, next) => {
   try {
     requireFields(req.body, ["customerId", "vendorId", "totalProductAmount", "totalShippingCustoms"]);
-    const { customerId, vendorId, totalProductAmount, totalShippingCustoms, techServiceFee = 0 } = req.body;
+    const { customerId, vendorId, totalProductAmount, totalShippingCustoms, techServiceFee = 0, paymentMethod = 'COD', deliveryMode = 'DOOR', shippingAddress = null, nearestLandmark = null, pickupPointId = null } = req.body;
+    if (!PAYMENT_METHODS.has(paymentMethod)) return res.status(400).json({ error: 'Payment method must be COD or MANUAL' });
+    if (!DELIVERY_MODES.has(deliveryMode)) return res.status(400).json({ error: 'Delivery mode must be DOOR or PICKUP' });
+    if (deliveryMode === 'DOOR' && !shippingAddress && !nearestLandmark) return res.status(400).json({ error: 'A door delivery address or landmark is required' });
+    if (deliveryMode === 'PICKUP' && !pickupPointId) return res.status(400).json({ error: 'A pickup point is required' });
     const grandTotal = Number(totalProductAmount) + Number(totalShippingCustoms) + Number(techServiceFee);
     if (![totalProductAmount, totalShippingCustoms, techServiceFee].every((value) => Number.isFinite(Number(value)) && Number(value) >= 0)) return res.status(400).json({ error: "Amounts must be non-negative numbers" });
-    const result = await query("INSERT INTO orders (customer_id, vendor_id, total_product_amount, total_shipping_customs, tech_service_fee, grand_total) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *", [customerId, vendorId, totalProductAmount, totalShippingCustoms, techServiceFee, grandTotal]);
+    const result = await query("INSERT INTO orders (customer_id, vendor_id, total_product_amount, total_shipping_customs, tech_service_fee, grand_total, payment_method, delivery_mode, shipping_address, nearest_landmark, pickup_point_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *", [customerId, vendorId, totalProductAmount, totalShippingCustoms, techServiceFee, grandTotal, paymentMethod, deliveryMode, shippingAddress, nearestLandmark, pickupPointId]);
     res.status(201).json({ order: result.rows[0] });
+  } catch (error) { next(error); }
+});
+
+app.post('/api/orders/:orderId/delivered', async (req, res, next) => {
+  try {
+    const result = await query("UPDATE orders SET status = 'DELIVERED', delivered_at = CURRENT_TIMESTAMP, escrow_status = 'HOLDING' WHERE id = $1 AND status IN ('SHIPPED', 'CUSTOMS_CLEARED') RETURNING id, status, delivered_at, escrow_status", [req.params.orderId]);
+    if (!result.rowCount) return res.status(404).json({ error: 'Order is not ready to be marked delivered' });
+    await query("INSERT INTO escrow_events (order_id, to_status, note) VALUES ($1, 'HOLDING', 'Delivery confirmed; 7-day escrow window started')", [req.params.orderId]);
+    res.json({ order: result.rows[0] });
+  } catch (error) { next(error); }
+});
+
+app.post('/api/orders/:orderId/returns', async (req, res, next) => {
+  try {
+    requireFields(req.body, ['customerId', 'reason']);
+    const { customerId, reason, proofImages = [], vinNumber = null } = req.body;
+    if (!RETURN_REASONS.has(reason)) return res.status(400).json({ error: 'Unsupported return reason' });
+    if (!Array.isArray(proofImages) || proofImages.length > 8) return res.status(400).json({ error: 'proofImages must contain at most 8 URLs' });
+    if (['DEFECT', 'MISMATCH', 'DAMAGE', 'VIN_MISMATCH'].includes(reason) && proofImages.length === 0) return res.status(400).json({ error: 'At least one proof image is required for this reason' });
+    if (reason === 'VIN_MISMATCH' && !vinNumber) return res.status(400).json({ error: 'VIN is required for VIN mismatch claims' });
+    const order = await query("SELECT id, customer_id, status, escrow_status FROM orders WHERE id = $1 AND customer_id = $2", [req.params.orderId, customerId]);
+    if (!order.rowCount) return res.status(404).json({ error: 'Order not found' });
+    if (order.rows[0].status !== 'DELIVERED') return res.status(400).json({ error: 'Returns are available after delivery' });
+    const result = await query("INSERT INTO return_requests (order_id, customer_id, reason, proof_images, vin_number) VALUES ($1, $2, $3, $4::jsonb, $5) RETURNING *", [req.params.orderId, customerId, reason, JSON.stringify(proofImages), vinNumber]);
+    await query("UPDATE orders SET disputed = TRUE, escrow_status = 'DISPUTED' WHERE id = $1 AND escrow_status = 'HOLDING'", [req.params.orderId]);
+    await query("INSERT INTO escrow_events (order_id, from_status, to_status, note) VALUES ($1, 'HOLDING', 'DISPUTED', $2)", [req.params.orderId, `Return requested: ${reason}`]);
+    res.status(201).json({ returnRequest: result.rows[0] });
+  } catch (error) { next(error); }
+});
+
+app.post('/api/admin/returns/:returnId/decision', async (req, res, next) => {
+  try {
+    requireFields(req.body, ['adminId', 'decision']);
+    const { adminId, decision, sellerFault = false, returnShippingCost = 0, decisionNote = null } = req.body;
+    if (!['APPROVED', 'REJECTED'].includes(decision)) return res.status(400).json({ error: 'Decision must be APPROVED or REJECTED' });
+    if (!Number.isFinite(Number(returnShippingCost)) || Number(returnShippingCost) < 0) return res.status(400).json({ error: 'returnShippingCost must be non-negative' });
+    const shippingCostCharged = sellerFault ? 0 : Number(returnShippingCost);
+    const result = await query("UPDATE return_requests SET status = $1, seller_fault = $2, shipping_cost_charged = $3, decision_note = $4, reviewed_by = $5, reviewed_at = CURRENT_TIMESTAMP WHERE id = $6 AND status IN ('REQUESTED', 'UNDER_REVIEW') RETURNING *", [decision, Boolean(sellerFault), shippingCostCharged, decisionNote, adminId, req.params.returnId]);
+    if (!result.rowCount) return res.status(404).json({ error: 'Return request not found or already decided' });
+    const request = result.rows[0];
+    if (decision === 'APPROVED') {
+      await query("UPDATE orders SET escrow_status = 'REFUNDED' WHERE id = $1 AND escrow_status = 'DISPUTED'", [request.order_id]);
+      await query("INSERT INTO escrow_events (order_id, from_status, to_status, actor_id, note) VALUES ($1, 'DISPUTED', 'REFUNDED', $2, $3)", [request.order_id, adminId, sellerFault ? 'Approved: seller bears all return shipping' : 'Approved: return shipping deducted from refund']);
+    }
+    res.json({ returnRequest: request, shippingCostCharged });
+  } catch (error) { next(error); }
+});
+
+app.get('/api/orders/:orderId/returns', async (req, res, next) => {
+  try { const result = await query('SELECT * FROM return_requests WHERE order_id = $1 ORDER BY created_at DESC', [req.params.orderId]); res.json({ requests: result.rows }); }
+  catch (error) { next(error); }
+});
+
+app.post('/api/scheduled/release-escrow', async (req, res, next) => {
+  try {
+    if (!process.env.CRON_SECRET || req.get('x-cron-secret') !== process.env.CRON_SECRET) return res.status(403).json({ error: 'cron-only' });
+    const result = await query('SELECT release_eligible_escrow() AS released_count');
+    res.json({ ok: true, releasedCount: Number(result.rows[0].released_count) });
   } catch (error) { next(error); }
 });
 
