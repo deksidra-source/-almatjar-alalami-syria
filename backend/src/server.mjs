@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import { query } from "./db.mjs";
 import { DELIVERY_MODES, PAYMENT_METHODS, RETURN_REASONS } from "./order-contract.mjs";
+import { askGemini, geminiConfigured } from "./gemini.mjs";
 
 const app = express();
 const port = Number(process.env.PORT || 4000);
@@ -84,6 +85,10 @@ app.post("/api/orders", async (req, res, next) => {
     if (deliveryMode === 'PICKUP' && !pickupPointId) return res.status(400).json({ error: 'A pickup point is required' });
     const grandTotal = Number(totalProductAmount) + Number(totalShippingCustoms) + Number(techServiceFee);
     if (![totalProductAmount, totalShippingCustoms, techServiceFee].every((value) => Number.isFinite(Number(value)) && Number(value) >= 0)) return res.status(400).json({ error: "Amounts must be non-negative numbers" });
+    const vendor = await query("SELECT shipping_contract_verified, shipping_contract_expires_at FROM vendors WHERE id = $1", [vendorId]);
+    if (!vendor.rowCount) return res.status(404).json({ error: "Vendor not found" });
+    const contract = vendor.rows[0];
+    if (!contract.shipping_contract_verified || !contract.shipping_contract_expires_at || new Date(contract.shipping_contract_expires_at).getTime() <= Date.now()) return res.status(409).json({ error: "Vendor shipping contract must be verified and active" });
     const result = await query("INSERT INTO orders (customer_id, vendor_id, total_product_amount, total_shipping_customs, tech_service_fee, grand_total, payment_method, delivery_mode, shipping_address, nearest_landmark, pickup_point_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *", [customerId, vendorId, totalProductAmount, totalShippingCustoms, techServiceFee, grandTotal, paymentMethod, deliveryMode, shippingAddress, nearestLandmark, pickupPointId]);
     res.status(201).json({ order: result.rows[0] });
   } catch (error) { next(error); }
@@ -166,6 +171,71 @@ app.post("/api/admin/promotion-requests/:id/decision", async (req, res, next) =>
     res.json({ request, notification: { type: "promotion_status_changed", status: request.status } });
   } catch (error) { next(error); }
 });
+
+function validateMerchantShippingContract(body) {
+  requireFields(body, ['shippingCompanyName', 'shippingContractReference', 'shippingContractExpiresAt']);
+  if (new Date(body.shippingContractExpiresAt).getTime() <= Date.now()) { const error = new Error('Shipping contract must be active'); error.status = 400; throw error; }
+}
+
+app.post('/api/vendors/:vendorId/shipping-contract', async (req, res, next) => {
+  try {
+    validateMerchantShippingContract(req.body);
+    const { shippingCompanyName, shippingContractReference, shippingContractExpiresAt, whatsappBusinessNumber = null } = req.body;
+    const result = await query(`UPDATE vendors SET shipping_company_name = $1, shipping_contract_reference = $2, shipping_contract_expires_at = $3, shipping_contract_verified = FALSE, whatsapp_business_number = $4 WHERE id = $5 RETURNING id, shipping_company_name, shipping_contract_reference, shipping_contract_expires_at, shipping_contract_verified, whatsapp_business_number, ai_provider`, [shippingCompanyName, shippingContractReference, shippingContractExpiresAt, whatsappBusinessNumber, req.params.vendorId]);
+    if (!result.rowCount) return res.status(404).json({ error: 'Vendor not found' });
+    res.json({ vendor: result.rows[0], messageChannel: 'WHATSAPP_ONLY', smsEnabled: false });
+  } catch (error) { next(error); }
+});
+
+app.post('/api/vendors/:vendorId/reels', async (req, res, next) => {
+  try {
+    requireFields(req.body, ['title', 'mediaUrl', 'durationSeconds']);
+    const { title, mediaUrl, coverUrl = null, durationSeconds, filterName = 'ORIGINAL', isAd = false } = req.body;
+    if (![10, 20, 60].includes(Number(durationSeconds))) return res.status(400).json({ error: 'durationSeconds must be 10, 20, or 60' });
+    const vendor = await query('SELECT id, shipping_contract_verified FROM vendors WHERE id = $1', [req.params.vendorId]);
+    if (!vendor.rowCount) return res.status(404).json({ error: 'Vendor not found' });
+    const result = await query(`INSERT INTO reels (vendor_id, title, media_url, cover_url, duration_seconds, filter_name, is_ad) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`, [req.params.vendorId, title, mediaUrl, coverUrl, durationSeconds, filterName, Boolean(isAd)]);
+    res.status(201).json({ reel: result.rows[0], status: 'PENDING_REVIEW', publisher: 'VENDOR_ONLY' });
+  } catch (error) { next(error); }
+});
+
+app.post('/api/reels/:reelId/like', async (req, res, next) => {
+  try { requireFields(req.body, ['userId']); const result = await query('INSERT INTO reel_likes (reel_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING RETURNING reel_id', [req.params.reelId, req.body.userId]); res.json({ liked: Boolean(result.rowCount) }); }
+  catch (error) { next(error); }
+});
+
+app.post('/api/reels/:reelId/comments', async (req, res, next) => {
+  try { requireFields(req.body, ['userId', 'body']); const result = await query('INSERT INTO reel_comments (reel_id, user_id, body) VALUES ($1, $2, $3) RETURNING id, reel_id, user_id, body, created_at', [req.params.reelId, req.body.userId, req.body.body]); res.status(201).json({ comment: result.rows[0] }); }
+  catch (error) { next(error); }
+});
+
+app.post('/api/vendors/:vendorId/follow', async (req, res, next) => {
+  try { requireFields(req.body, ['userId']); const result = await query('INSERT INTO vendor_follows (vendor_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING RETURNING vendor_id', [req.params.vendorId, req.body.userId]); res.json({ following: Boolean(result.rowCount) }); }
+  catch (error) { next(error); }
+});
+
+app.get('/api/vendors/:vendorId/dashboard', async (req, res, next) => {
+  try { const result = await query('SELECT * FROM vendor_dashboard_metrics WHERE vendor_id = $1', [req.params.vendorId]); if (!result.rowCount) return res.status(404).json({ error: 'Vendor not found' }); res.json({ metrics: result.rows[0], growth: { status: 'CALCULATED_FROM_REAL_DATA' } }); }
+  catch (error) { next(error); }
+});
+
+app.post('/api/ai/assistant', async (req, res, next) => {
+  try {
+    requireFields(req.body, ['prompt']);
+    const answer = await askGemini({ system: 'أنت مساعد تسوق سوري عملي. اقترح منتجات ونقاط استلام، ولا تعد المستخدم ببيانات غير موجودة.', prompt: req.body.prompt });
+    res.json({ provider: 'GEMINI', answer });
+  } catch (error) { next(error); }
+});
+
+app.post('/api/ai/visual-search', async (req, res, next) => {
+  try {
+    requireFields(req.body, ['imageDataUrl']);
+    const answer = await askGemini({ system: 'حلل صورة المنتج واستخرج وصفًا قصيرًا وكلمات بحث عربية وإنجليزية. لا تدّعِ تطابقًا مع مخزون غير متصل.', prompt: 'حلل المنتج الظاهر في الصورة وحدد نوعه وخصائصه وكلمات البحث المناسبة.', imageDataUrl: req.body.imageDataUrl });
+    res.json({ provider: 'GEMINI', query: answer });
+  } catch (error) { next(error); }
+});
+
+app.get('/api/ai/status', (_req, res) => res.json({ provider: 'GEMINI', configured: geminiConfigured() }));
 
 app.use((error, _req, res, _next) => {
   console.error(error);
