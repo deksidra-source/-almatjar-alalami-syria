@@ -103,7 +103,7 @@ CORS_ORIGIN=http://localhost:3000
 npm run db:migrate
 ```
 
-هذا الأمر يقرأ `docs/postgresql-schema-draft.sql` ويطبّق الجداول والأنواع والفهارس على قاعدة `almatjar_alalami_syria`. لا تنفذه على قاعدة مشروع آخر.
+هذا الأمر يقرأ `postgresql-schema-draft.sql` من مجلد `docs/` ويطبّق الجداول والأنواع والفهارس على قاعدة `almatjar_alalami_syria`. لا تنفذه على قاعدة مشروع آخر.
 
 للتحقق من الجداول:
 
