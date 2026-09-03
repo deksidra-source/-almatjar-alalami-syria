@@ -362,3 +362,88 @@ h1 span { color: var(--ink); }
 .role-link:hover { transform:translateY(-3px); border-color:var(--burgundy); }
 .admin-role { background:linear-gradient(135deg,#fff8d5,#fffdf4); }
 .admin-nav-link { color:var(--burgundy) !important; font-weight:900; }
+Upda/* ==========================================================================
+   تعديلات إضافية للمظهر العصري الفاخر (Modern Enhancements 2026)
+   ========================================================================== */
+
+/* 1. تأثير التوهج الضوئي للأزرار (Button Glow Effect) */
+.primary-button, .account-link {
+  position: relative;
+  box-shadow: 0 4px 14px 0 rgba(37, 99, 235, 0.35);
+}
+
+.primary-button:hover, .account-link:hover {
+  box-shadow: 0 6px 20px rgba(37, 99, 235, 0.55);
+  transform: translateY(-2px);
+}
+
+/* 2. تصميم بطاقة المنتج الحديثة (Ultra-Modern Product Card) */
+.product-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  position: relative;
+  transition: var(--transition);
+  overflow: hidden;
+}
+
+.product-card:hover {
+  transform: translateY(-6px);
+  box-shadow: var(--shadow-lg);
+  border-color: var(--primary-light);
+}
+
+/* حاوية صورة المنتج مع تأثير التكبير الناعم عند اللمس */
+.product-image-container {
+  width: 100%;
+  height: 220px;
+  background: #f1f5f9;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  position: relative;
+  margin-bottom: 12px;
+}
+
+.product-image-container img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.product-card:hover .product-image-container img {
+  transform: scale(1.08);
+}
+
+/* شارة الخصم والتنزيلات العائمة */
+.discount-badge {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: var(--accent);
+  color: #ffffff;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  box-shadow: 0 2px 8px rgba(249, 115, 22, 0.3);
+  z-index: 2;
+}
+
+/* 3. شريط الإعلانات والتنبيهات العلوي (Announcement Banner) */
+.announcement-bar {
+  background: linear-gradient(90deg, var(--primary), var(--accent));
+  color: #ffffff;
+  text-align: center;
+  padding: 8px 16px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  border-radius: var(--radius-sm);
+  margin-bottom: 16px;
+}
+
+/* 4. لمسة زجاجية أعمق للشريط العلوي */
+.topbar {
+  box-shadow: 0 8px 32px 0 rgba(15, 23, 42, 0.06);
+}
