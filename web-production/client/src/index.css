@@ -1,0 +1,32 @@
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap');
+@import "tailwindcss";
+@import "tw-animate-css";
+
+:root {
+  --background: 48 100% 98%;
+  --foreground: 12 18% 15%;
+  --card: 0 0% 100%;
+  --card-foreground: 12 18% 15%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 12 18% 15%;
+  --primary: 347 56% 25%;
+  --primary-foreground: 48 100% 98%;
+  --secondary: 48 87% 79%;
+  --secondary-foreground: 347 56% 25%;
+  --muted: 42 30% 92%;
+  --muted-foreground: 24 16% 45%;
+  --accent: 48 87% 79%;
+  --accent-foreground: 347 56% 25%;
+  --border: 347 56% 25% / 0.12;
+  --input: 347 56% 25% / 0.14;
+  --ring: 347 56% 25%;
+  --radius: 1rem;
+}
+
+* { border-color: hsl(var(--border)); }
+html { scroll-behavior: smooth; }
+body { margin: 0; min-width: 320px; background: #fff9df; font-family: "IBM Plex Sans Arabic", "Cairo", sans-serif; }
+button, input, textarea, select { font: inherit; }
+button { cursor: pointer; }
+.font-black { font-family: "Cairo", sans-serif; }
+::selection { color: #fff9df; background: #641c2c; }

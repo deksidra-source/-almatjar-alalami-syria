@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>الإدارة | المتجر العالمي سوريا</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Aref+Ruqaa+Ink:wght@400;700&family=Noto+Kufi+Arabic:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+  <style>
+    .admin-page{min-height:100vh;padding:45px 0;background:#fff6c9}.admin-head{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:24px}.admin-head h1{margin-top:10px;font-size:clamp(40px,6vw,72px)}.admin-badge{padding:9px 12px;color:var(--burgundy);background:#ffeb9e;border-radius:999px;font-size:10px;font-weight:900}.admin-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}.admin-card{padding:23px;background:#fffdf4;border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow)}.admin-card .feature-icon{margin-bottom:12px}.admin-card strong{display:block;color:var(--burgundy);font-size:13px}.admin-card p{margin-top:8px;color:var(--muted);font-size:10px;line-height:1.9}.admin-status{display:inline-block;margin-top:12px;padding:6px 9px;color:var(--burgundy);background:#ffeb9e;border-radius:999px;font-size:8px;font-weight:900}.admin-empty{margin-top:16px;padding:22px;background:var(--burgundy);color:#fff9df;border-radius:18px}.admin-empty strong{font-size:12px}.admin-empty p{margin-top:7px;color:#f9eab1;font-size:10px;line-height:1.9}.pricing-card{grid-column:1/-1}.pricing-form{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;align-items:end;margin-top:16px}.pricing-form label{display:grid;gap:7px;color:var(--muted);font-size:11px;font-weight:700}.pricing-form input{width:100%;padding:12px;border:1px solid var(--line);border-radius:12px;background:#fff}.pricing-form button{border:0;cursor:pointer}.pricing-message{min-height:22px;margin-top:12px;color:var(--burgundy);font-size:11px;font-weight:700}@media(max-width:700px){.admin-page{padding-top:28px}.admin-head{align-items:flex-start;flex-direction:column;gap:16px}.admin-grid{grid-template-columns:1fr}.pricing-form{grid-template-columns:1fr}.pricing-card{grid-column:auto}}
+  </style>
+</head>
+<body>
+  <main class="admin-page">
+    <div class="section-shell">
+      <div class="admin-head"><div><span class="eyebrow">لوحة الإدارة</span><h1>نظرة واضحة.</h1></div><span class="admin-badge">محمي — يتطلب حساب مدير</span></div>
+      <div class="admin-grid">
+        <div class="admin-card"><span class="feature-icon">▦</span><strong>طلبات فتح المتاجر</strong><p>ستظهر هنا بعد ربط الحسابات ورفع الوثائق.</p></div>
+        <div class="admin-card"><span class="feature-icon">◌</span><strong>الاشتراكات</strong><p>متابعة التجربة المجانية والرسوم المرجعية دون تحصيل حالي.</p></div>
+        <div class="admin-card"><span class="feature-icon">✓</span><strong>البلاغات</strong><p>مراجعة البلاغات وطلبات حذف البيانات بصلاحيات واضحة.</p></div>
+        <section class="admin-card pricing-card"><span class="feature-icon">$</span><strong>أسعار الإعلان المروّج</strong><p>لا توجد أسعار ثابتة في التطبيق. يحدد المدير سعر كل نوع من المتاجر، ويُحفظ السعر في قاعدة البيانات ويُلتقط داخل طلب الترويج وقت إنشائه.</p>
+          <form id="pricing-form" class="pricing-form">
+            <label>معرّف حساب المدير<input id="admin-id" required placeholder="UUID لحساب ADMIN" /></label>
+            <label>سعر المتجر الصغير بالدولار<input id="small-price" type="number" min="0" step="0.01" required placeholder="أدخل السعر" /></label>
+            <label>سعر المتجر الكبير بالدولار<input id="large-price" type="number" min="0" step="0.01" required placeholder="أدخل السعر" /></label>
+            <button class="primary-button" type="submit">حفظ أسعار الإعلان</button>
+          </form>
+          <div id="pricing-message" class="pricing-message" aria-live="polite"></div>
+        </section>
+        <div class="admin-card"><span class="feature-icon">★</span><strong>طلبات الإعلان المروّج</strong><p>تظهر الطلبات بعد ضبط السعر من هذه اللوحة. الحالة تبدأ قيد المراجعة، والدفع يدوي، والتفعيل لا يتم إلا بقرار مدير.</p><span class="admin-status">لا توجد طلبات مرتبطة بعد</span></div>
+      </div>
+      <div class="admin-empty"><strong>تنبيه أمني</strong><p>هذه الواجهة أصبحت مرتبطة بإعدادات الأسعار، لكن حماية الجلسة وتسجيل الدخول الحقيقي يجب أن يسبقا النشر العام. لا تضع معرّف مدير حقيقيًا في واجهة عامة قبل إكمال المصادقة.</p></div>
+    </div>
+  </main>
+  <script>
+    const apiBase = window.AL_MATJAR_API_BASE || window.API_BASE_URL || "http://localhost:4000";
+    const form = document.querySelector("#pricing-form");
+    const message = document.querySelector("#pricing-message");
+    const adminId = document.querySelector("#admin-id");
+    const inputs = { SMALL_STORE: document.querySelector("#small-price"), HEAVY_STORE: document.querySelector("#large-price") };
+    function setMessage(text, error = false) { message.textContent = text; message.style.color = error ? "#9d1c32" : "var(--burgundy)"; }
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      setMessage("جارٍ حفظ الأسعار...");
+      try {
+        for (const [type, input] of Object.entries(inputs)) {
+          const response = await fetch(`${apiBase}/api/admin/promotion-pricing/${type}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ adminId: adminId.value.trim(), priceUsd: Number(input.value) }) });
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.error || "تعذر حفظ السعر");
+        }
+        setMessage("تم حفظ أسعار الإعلان بنجاح.");
+      } catch (error) { setMessage(error.message, true); }
+    });
+  </script>
+</body>
+</html>
