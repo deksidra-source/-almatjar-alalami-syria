@@ -16,6 +16,9 @@ const requireUser = t.middleware(async opts => {
   if (!ctx.user) {
     throw new TRPCError({ code: "UNAUTHORIZED", message: UNAUTHED_ERR_MSG });
   }
+  if (ctx.user.isSuspended) {
+    throw new TRPCError({ code: "FORBIDDEN", message: "هذا الحساب موقوف مؤقتًا من إدارة المنصة" });
+  }
 
   return next({
     ctx: {

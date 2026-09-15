@@ -19,6 +19,7 @@ export const users = mysqlTable("users", {
   email: varchar("email", { length: 320 }),
   loginMethod: varchar("loginMethod", { length: 64 }),
   role: mysqlEnum("role", ["user", "admin"]).default("user").notNull(),
+  isSuspended: boolean("isSuspended").default(false).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
   lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull(),
@@ -31,10 +32,17 @@ export const vendors = mysqlTable("vendors", {
   storeType: mysqlEnum("storeType", ["SMALL_STORE", "HEAVY_STORE"]).default("SMALL_STORE").notNull(),
   description: text("description"),
   phone: varchar("phone", { length: 40 }),
+  syriatelCashEnabled: boolean("syriatelCashEnabled").default(false).notNull(),
+  ecashBemoEnabled: boolean("ecashBemoEnabled").default(false).notNull(),
+  paymentAccountNumber: varchar("paymentAccountNumber", { length: 160 }),
+  paymentIban: varchar("paymentIban", { length: 160 }),
+  paymentInstructions: text("paymentInstructions"),
   trialEndsAt: timestamp("trialEndsAt").notNull(),
   monthlyFeeUsd: decimal("monthlyFeeUsd", { precision: 10, scale: 2 }).default("5.00").notNull(),
   prepaidWalletBalance: decimal("prepaidWalletBalance", { precision: 12, scale: 2 }).default("0.00").notNull(),
   subscriptionStatus: mysqlEnum("subscriptionStatus", ["TRIAL", "ACTIVE", "PAUSED", "EXPIRED"]).default("TRIAL").notNull(),
+  subscriptionExpiresAt: timestamp("subscriptionExpiresAt"),
+  storeVisibility: mysqlEnum("storeVisibility", ["ACTIVE", "INACTIVE"]).default("ACTIVE").notNull(),
   isVerified: boolean("isVerified").default(false).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 }, (table) => ({ ownerIdx: index("vendors_owner_idx").on(table.ownerId) }));
@@ -89,6 +97,8 @@ export const orders = mysqlTable("orders", {
   contactPhone: varchar("contactPhone", { length: 40 }),
   commissionAmount: decimal("commissionAmount", { precision: 12, scale: 2 }).default("0.00").notNull(),
   commissionDeductedAt: timestamp("commissionDeductedAt"),
+  paymentReceiptScreenshot: text("paymentReceiptScreenshot"),
+  transactionRefId: varchar("transactionRefId", { length: 160 }),
   shippingAddress: text("shippingAddress"),
   customerNote: text("customerNote"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
@@ -147,6 +157,30 @@ export const imageSearchRequests = mysqlTable("imageSearchRequests", {
   queryText: text("queryText"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
+
+export const vendorSubscriptionPayments = mysqlTable("vendorSubscriptionPayments", {
+  id: int("id").autoincrement().primaryKey(),
+  vendorId: int("vendorId").notNull().references(() => vendors.id),
+  amountUsd: decimal("amountUsd", { precision: 10, scale: 2 }).default("5.00").notNull(),
+  receiptImageUrl: text("receiptImageUrl").notNull(),
+  status: mysqlEnum("status", ["PENDING", "APPROVED", "REJECTED"]).default("PENDING").notNull(),
+  reviewedBy: int("reviewedBy").references(() => users.id),
+  reviewedAt: timestamp("reviewedAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, (table) => ({ vendorIdx: index("subscription_payments_vendor_idx").on(table.vendorId), statusIdx: index("subscription_payments_status_idx").on(table.status) }));
+
+export const disputeReports = mysqlTable("disputeReports", {
+  id: int("id").autoincrement().primaryKey(),
+  orderId: int("orderId").notNull().references(() => orders.id),
+  openedBy: int("openedBy").notNull().references(() => users.id),
+  subject: varchar("subject", { length: 180 }).notNull(),
+  details: text("details").notNull(),
+  status: mysqlEnum("status", ["OPEN", "IN_REVIEW", "RESOLVED"]).default("OPEN").notNull(),
+  resolution: text("resolution"),
+  resolvedBy: int("resolvedBy").references(() => users.id),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  resolvedAt: timestamp("resolvedAt"),
+}, (table) => ({ orderIdx: index("disputes_order_idx").on(table.orderId), statusIdx: index("disputes_status_idx").on(table.status) }));
 
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;

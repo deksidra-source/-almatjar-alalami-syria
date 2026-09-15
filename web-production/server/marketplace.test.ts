@@ -26,6 +26,13 @@ describe("marketplace public procedures", () => {
     expect(appRouter._def.procedures).toHaveProperty("orders.confirmPaid");
     expect(appRouter._def.procedures).toHaveProperty("orders.markShipped");
     expect(appRouter._def.procedures).toHaveProperty("orders.markDelivered");
+    expect(appRouter._def.procedures).toHaveProperty("vendor.paymentSettings");
+    expect(appRouter._def.procedures).toHaveProperty("vendor.subscriptionPayment");
+    expect(appRouter._def.procedures).toHaveProperty("vendor.analytics");
+    expect(appRouter._def.procedures).toHaveProperty("admin.subscriptionQueue");
+    expect(appRouter._def.procedures).toHaveProperty("admin.approveSubscription");
+    expect(appRouter._def.procedures).toHaveProperty("admin.vendorDirectory");
+    expect(appRouter._def.procedures).toHaveProperty("disputes.create");
   });
 
   it("returns an array from the public catalog endpoint", async () => {

@@ -14,26 +14,50 @@ import {
   imageSearchRequests,
   supportTickets,
   vendors,
+  users,
+  vendorSubscriptionPayments,
+  disputeReports,
 } from "../drizzle/schema";
 import { getDb } from "./db";
 import { invokeLLM } from "./_core/llm";
+import { storagePut } from "./storage";
 import { systemRouter } from "./_core/systemRouter";
 import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
 
 const storeType = z.enum(["SMALL_STORE", "HEAVY_STORE"]);
 const paymentMethod = z.enum(["COD", "SYRIATEL_CASH", "ECASH", "BANK_TRANSFER", "MANUAL"]);
+const receiptDataUrl = z.string().max(8_000_000).regex(/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/);
+async function storeReceipt(dataUrl: string, ownerId: number) {
+  if (!dataUrl.startsWith("data:image/")) return dataUrl;
+  const match = dataUrl.match(/^data:(image\/(?:png|jpeg|webp));base64,([A-Za-z0-9+/=]+)$/);
+  if (!match) throw new Error("Only PNG, JPEG, or WEBP receipt images are allowed");
+  const [, contentType, encoded] = match;
+  const buffer = Buffer.from(encoded, "base64");
+  if (buffer.length > 5_000_000) throw new Error("Receipt image must be 5MB or smaller");
+  const extension = contentType === "image/jpeg" ? "jpg" : contentType.split("/")[1];
+  return (await storagePut(`payment-receipts/${ownerId}/${Date.now()}.${extension}`, buffer, contentType)).url;
+}
 
 const vendorProcedure = protectedProcedure.use(async ({ ctx, next }) => {
   const db = await getDb();
   if (!db) throw new Error("Database is not configured");
   const result = await db.select().from(vendors).where(eq(vendors.ownerId, ctx.user.id)).limit(1);
   if (!result[0]) throw new Error("Vendor account is required");
-  return next({ ctx: { ...ctx, db, vendor: result[0] } });
+  const vendor = result[0];
+  const expiresAt = vendor.subscriptionExpiresAt ?? vendor.trialEndsAt;
+  if (expiresAt && new Date(expiresAt) < new Date() && vendor.subscriptionStatus !== "EXPIRED") {
+    await db.update(vendors).set({ subscriptionStatus: "EXPIRED", storeVisibility: "INACTIVE" }).where(eq(vendors.id, vendor.id));
+    vendor.subscriptionStatus = "EXPIRED";
+    vendor.storeVisibility = "INACTIVE";
+  }
+  return next({ ctx: { ...ctx, db, vendor } });
 });
 
-const adminProcedure = protectedProcedure.use(({ ctx, next }) => {
+const adminProcedure = protectedProcedure.use(async ({ ctx, next }) => {
   if (ctx.user.role !== "admin") throw new Error("Administrator access is required");
-  return next({ ctx });
+  const db = await getDb();
+  if (!db) throw new Error("Database is not configured");
+  return next({ ctx: { ...ctx, db } });
 });
 
 export const appRouter = router({
@@ -52,9 +76,10 @@ export const appRouter = router({
       if (!db) return [];
       const filters = [eq(products.status, "PUBLISHED")];
       if (input?.categoryId) filters.push(eq(products.categoryId, input.categoryId));
-      const rows = await db.select().from(products).where(and(...filters)).orderBy(desc(products.createdAt)).limit(60);
+      const rows = await db.select({ product: products, vendor: vendors }).from(products).innerJoin(vendors, eq(products.vendorId, vendors.id)).where(and(...filters, eq(vendors.storeVisibility, "ACTIVE"))).orderBy(desc(products.createdAt)).limit(60);
+      const enriched = rows.map(({ product, vendor }) => ({ ...product, syriatelCashEnabled: vendor.syriatelCashEnabled, ecashBemoEnabled: vendor.ecashBemoEnabled, paymentAccountNumber: vendor.paymentAccountNumber, paymentIban: vendor.paymentIban, paymentInstructions: vendor.paymentInstructions }));
       const query = input?.query?.trim().toLowerCase();
-      return query ? rows.filter(product => `${product.title} ${product.description ?? ""}`.toLowerCase().includes(query)) : rows;
+      return query ? enriched.filter(product => `${product.title} ${product.description ?? ""}`.toLowerCase().includes(query)) : enriched;
     }),
     categories: publicProcedure.query(async () => {
       const db = await getDb();
@@ -76,6 +101,19 @@ export const appRouter = router({
       const result = await invokeLLM({ model: "gpt-5-mini", maxTokens: 700, messages: [{ role: "system", content: "أنت مساعد المتجر العالمي سوريا. أجب بالعربية بإيجاز ووضوح. ساعد في اختيار المنتجات، فهم الطلبات، الشحن، الدفع، وفتح المتجر. لا تخترع أسعارًا أو توفرًا غير موجود، واذكر أن السعر النهائي يؤكده التاجر." }, ...input.messages] });
       const content = result.choices[0]?.message.content;
       return { content: typeof content === "string" ? content : "أعتذر، لم أتمكن من إعداد إجابة الآن." };
+    }),
+  }),
+  files: router({
+    uploadPaymentReceipt: protectedProcedure.input(z.object({ dataUrl: receiptDataUrl })).mutation(async ({ input, ctx }) => ({ ...(await storagePut(`payment-receipts/${ctx.user.id}/${Date.now()}.upload`, Buffer.from(input.dataUrl.split(",")[1], "base64"), input.dataUrl.match(/^data:(image\/[^;]+)/)?.[1] ?? "image/png")) })),
+  }),
+  disputes: router({
+    create: protectedProcedure.input(z.object({ orderId: z.number(), subject: z.string().min(2).max(180), details: z.string().min(5).max(5000) })).mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database is not configured");
+      const order = (await db.select().from(orders).where(and(eq(orders.id, input.orderId), or(eq(orders.customerId, ctx.user.id), eq(orders.vendorId, ctx.user.id)))).limit(1))[0];
+      if (!order) throw new Error("Order not found or access denied");
+      const [result] = await db.insert(disputeReports).values({ orderId: input.orderId, openedBy: ctx.user.id, subject: input.subject, details: input.details });
+      return { id: Number(result.insertId), status: "OPEN" as const };
     }),
   }),
   support: router({
@@ -109,7 +147,7 @@ export const appRouter = router({
       if (existing[0]) return existing[0];
       const trialEndsAt = new Date();
       trialEndsAt.setMonth(trialEndsAt.getMonth() + 3);
-      const [result] = await db.insert(vendors).values({ ownerId: ctx.user.id, storeName: input.storeName, storeType: input.storeType, description: input.description, phone: input.phone, trialEndsAt, monthlyFeeUsd: "5.00", subscriptionStatus: "TRIAL" });
+      const [result] = await db.insert(vendors).values({ ownerId: ctx.user.id, storeName: input.storeName, storeType: input.storeType, description: input.description, phone: input.phone, trialEndsAt, subscriptionExpiresAt: trialEndsAt, monthlyFeeUsd: "5.00", subscriptionStatus: "TRIAL" });
       return (await db.select().from(vendors).where(eq(vendors.id, Number(result.insertId))).limit(1))[0];
     }),
     products: vendorProcedure.query(async ({ ctx }) => ctx.db.select().from(products).where(eq(products.vendorId, ctx.vendor.id)).orderBy(desc(products.createdAt))),
@@ -117,6 +155,21 @@ export const appRouter = router({
       const slug = `${input.title.toLowerCase().replace(/[^a-z0-9\u0600-\u06ff]+/g, "-")}-${Date.now()}`;
       const [result] = await ctx.db.insert(products).values({ vendorId: ctx.vendor.id, title: input.title, slug, description: input.description, price: input.price, stockQuantity: input.stockQuantity, categoryId: input.categoryId, images: input.images, options: {}, status: "PUBLISHED" });
       return { id: Number(result.insertId), slug };
+    }),
+    paymentSettings: vendorProcedure.query(async ({ ctx }) => ({ codEnabled: true, syriatelCashEnabled: ctx.vendor.syriatelCashEnabled, ecashBemoEnabled: ctx.vendor.ecashBemoEnabled, accountNumber: ctx.vendor.paymentAccountNumber, iban: ctx.vendor.paymentIban, instructions: ctx.vendor.paymentInstructions })),
+    updatePaymentSettings: vendorProcedure.input(z.object({ syriatelCashEnabled: z.boolean(), ecashBemoEnabled: z.boolean(), accountNumber: z.string().max(160).optional(), iban: z.string().max(160).optional(), instructions: z.string().max(2000).optional() })).mutation(async ({ input, ctx }) => {
+      await ctx.db.update(vendors).set({ syriatelCashEnabled: input.syriatelCashEnabled, ecashBemoEnabled: input.ecashBemoEnabled, paymentAccountNumber: input.accountNumber, paymentIban: input.iban, paymentInstructions: input.instructions }).where(eq(vendors.id, ctx.vendor.id));
+      return { success: true } as const;
+    }),
+    subscriptionPayment: vendorProcedure.input(z.object({ receiptImageUrl: z.string().max(8_000_000) })).mutation(async ({ input, ctx }) => {
+      const storedReceipt = await storeReceipt(input.receiptImageUrl, ctx.user.id);
+      const [result] = await ctx.db.insert(vendorSubscriptionPayments).values({ vendorId: ctx.vendor.id, receiptImageUrl: storedReceipt, amountUsd: "5.00" });
+      return { id: Number(result.insertId), status: "PENDING" as const };
+    }),
+    analytics: vendorProcedure.query(async ({ ctx }) => {
+      const rows = await ctx.db.select().from(orders).where(eq(orders.vendorId, ctx.vendor.id));
+      const completed = rows.filter(order => order.orderStatus === "DELIVERED");
+      return { totalOrders: rows.length, pendingConfirmations: rows.filter(order => order.paymentStatus === "PENDING" && order.paymentMethod !== "COD").length, completedOrders: completed.length, netRevenue: completed.reduce((sum, order) => sum + Number(order.grandTotal) - Number(order.commissionAmount), 0).toFixed(2), weekly: rows.slice(0, 7).map(order => ({ date: order.createdAt, amount: Number(order.grandTotal) })) };
     }),
   }),
   cart: router({
@@ -143,17 +196,23 @@ export const appRouter = router({
     }),
   }),
   orders: router({
-    create: protectedProcedure.input(z.object({ vendorId: z.number(), paymentMethod, shippingAddress: z.string().min(5), customerNote: z.string().optional(), items: z.array(z.object({ productId: z.number(), quantity: z.number().int().positive(), selectedOptions: z.record(z.string(), z.string()).default({}) })).min(1) })).mutation(async ({ input, ctx }) => {
+    create: protectedProcedure.input(z.object({ vendorId: z.number(), paymentMethod, paymentReceiptScreenshot: z.string().max(8_000_000).optional(), transactionRefId: z.string().max(160).optional(), shippingAddress: z.string().min(5), customerNote: z.string().optional(), items: z.array(z.object({ productId: z.number(), quantity: z.number().int().positive(), selectedOptions: z.record(z.string(), z.string()).default({}) })).min(1) })).mutation(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db) throw new Error("Database is not configured");
       const rows = await db.select().from(products).where(and(eq(products.vendorId, input.vendorId), inArray(products.id, input.items.map(item => item.productId)), eq(products.status, "PUBLISHED")));
+      const vendor = (await db.select().from(vendors).where(eq(vendors.id, input.vendorId)).limit(1))[0];
+      if (!vendor || vendor.storeVisibility !== "ACTIVE") throw new Error("This store is currently inactive");
+      if (input.paymentMethod === "SYRIATEL_CASH" && !vendor.syriatelCashEnabled) throw new Error("Syriatel Cash is not enabled by this vendor");
+      if (input.paymentMethod === "ECASH" && !vendor.ecashBemoEnabled) throw new Error("eCash / Bemo Bank is not enabled by this vendor");
+      if (input.paymentMethod !== "COD" && (!input.paymentReceiptScreenshot || !input.transactionRefId)) throw new Error("Digital payments require a receipt image and transaction reference");
       if (rows.length !== input.items.length) throw new Error("One or more products are unavailable");
       const totalProductAmount = input.items.reduce((sum, item) => {
         const product = rows.find(row => row.id === item.productId);
         if (!product || product.stockQuantity < item.quantity) throw new Error("Quantity exceeds stock");
         return sum + Number(product.price) * item.quantity;
       }, 0);
-      const [result] = await db.insert(orders).values({ customerId: ctx.user.id, vendorId: input.vendorId, paymentMethod: input.paymentMethod, totalProductAmount: totalProductAmount.toFixed(2), grandTotal: totalProductAmount.toFixed(2), shippingAddress: input.shippingAddress, customerNote: input.customerNote });
+      const storedReceipt = input.paymentReceiptScreenshot ? await storeReceipt(input.paymentReceiptScreenshot, ctx.user.id) : undefined;
+      const [result] = await db.insert(orders).values({ customerId: ctx.user.id, vendorId: input.vendorId, paymentMethod: input.paymentMethod, paymentReceiptScreenshot: storedReceipt, transactionRefId: input.transactionRefId, totalProductAmount: totalProductAmount.toFixed(2), grandTotal: totalProductAmount.toFixed(2), shippingAddress: input.shippingAddress, customerNote: input.customerNote });
       const orderId = Number(result.insertId);
       await db.insert(orderItems).values(input.items.map(item => ({ orderId, productId: item.productId, quantity: item.quantity, unitPrice: rows.find(row => row.id === item.productId)!.price, selectedOptions: item.selectedOptions as Record<string, string> })));
       return { orderId };
@@ -218,6 +277,27 @@ export const appRouter = router({
       }
       return input;
     }),
+    staticPaymentAccounts: adminProcedure.query(async () => ({ ziraat: { accountName: "المتجر العالمي سوريا", iban: "TR000000000000000000000000" }, manualRemittance: { receiverName: "إدارة المتجر العالمي سوريا", phone: "+90 000 000 0000", city: "إسطنبول", notes: "الفروع: الفؤاد، الهرم، كداموس" } })),
+    subscriptionQueue: adminProcedure.query(async ({ ctx }) => ctx.db.select().from(vendorSubscriptionPayments).where(eq(vendorSubscriptionPayments.status, "PENDING")).orderBy(desc(vendorSubscriptionPayments.createdAt))),
+    approveSubscription: adminProcedure.input(z.object({ paymentId: z.number() })).mutation(async ({ input, ctx }) => {
+      return ctx.db.transaction(async tx => {
+        const payment = (await tx.select().from(vendorSubscriptionPayments).where(and(eq(vendorSubscriptionPayments.id, input.paymentId), eq(vendorSubscriptionPayments.status, "PENDING"))).limit(1))[0];
+        if (!payment) throw new Error("Subscription payment is not pending");
+        const vendor = (await tx.select().from(vendors).where(eq(vendors.id, payment.vendorId)).limit(1))[0];
+        if (!vendor) throw new Error("Vendor not found");
+        const base = vendor.subscriptionExpiresAt && new Date(vendor.subscriptionExpiresAt) > new Date() ? new Date(vendor.subscriptionExpiresAt) : new Date();
+        base.setDate(base.getDate() + 30);
+        await tx.update(vendorSubscriptionPayments).set({ status: "APPROVED", reviewedBy: ctx.user.id, reviewedAt: new Date() }).where(eq(vendorSubscriptionPayments.id, payment.id));
+        await tx.update(vendors).set({ subscriptionExpiresAt: base, subscriptionStatus: "ACTIVE", storeVisibility: "ACTIVE" }).where(eq(vendors.id, vendor.id));
+        return { success: true, expiresAt: base };
+      });
+    }),
+    rejectSubscription: adminProcedure.input(z.object({ paymentId: z.number() })).mutation(async ({ input, ctx }) => { await ctx.db.update(vendorSubscriptionPayments).set({ status: "REJECTED", reviewedBy: ctx.user.id, reviewedAt: new Date() }).where(and(eq(vendorSubscriptionPayments.id, input.paymentId), eq(vendorSubscriptionPayments.status, "PENDING"))); return { success: true } as const; }),
+    vendorDirectory: adminProcedure.query(async ({ ctx }) => ctx.db.select().from(vendors).orderBy(desc(vendors.createdAt))),
+    setSuspended: adminProcedure.input(z.object({ userId: z.number(), suspended: z.boolean() })).mutation(async ({ input, ctx }) => { await ctx.db.update(users).set({ isSuspended: input.suspended }).where(eq(users.id, input.userId)); return { success: true } as const; }),
+    analytics: adminProcedure.query(async ({ ctx }) => { const storeRows = await ctx.db.select().from(vendors); const orderRows = await ctx.db.select().from(orders); return { totalStores: storeRows.length, activeSubscribers: storeRows.filter((v: typeof storeRows[number]) => v.subscriptionStatus === "ACTIVE" || v.subscriptionStatus === "TRIAL").length, monthlySubscriptionRevenue: storeRows.filter((v: typeof storeRows[number]) => v.subscriptionStatus === "ACTIVE").length * 5, gmv: orderRows.reduce((sum: number, o: typeof orderRows[number]) => sum + Number(o.grandTotal), 0).toFixed(2) }; }),
+    disputes: adminProcedure.query(async ({ ctx }) => ctx.db.select().from(disputeReports).where(or(eq(disputeReports.status, "OPEN"), eq(disputeReports.status, "IN_REVIEW"))).orderBy(desc(disputeReports.createdAt))),
+    resolveDispute: adminProcedure.input(z.object({ disputeId: z.number(), resolution: z.string().min(3) })).mutation(async ({ input, ctx }) => { await ctx.db.update(disputeReports).set({ status: "RESOLVED", resolution: input.resolution, resolvedBy: ctx.user.id, resolvedAt: new Date() }).where(eq(disputeReports.id, input.disputeId)); return { success: true } as const; }),
     updateCommissionPolicy: adminProcedure.input(z.object({ commissionPercent: z.string().regex(/^(100|[0-9]{1,2})(\.\d{1,2})?$/) })).mutation(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db) throw new Error("Database is not configured");
