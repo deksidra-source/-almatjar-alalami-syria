@@ -22,6 +22,12 @@ describe("marketplace public procedures", () => {
     expect(appRouter._def.procedures).toHaveProperty("auth.logout");
   });
 
+  it("exposes vendor-controlled payment, flexible shipping, and delivery transitions", () => {
+    expect(appRouter._def.procedures).toHaveProperty("orders.confirmPaid");
+    expect(appRouter._def.procedures).toHaveProperty("orders.markShipped");
+    expect(appRouter._def.procedures).toHaveProperty("orders.markDelivered");
+  });
+
   it("returns an array from the public catalog endpoint", async () => {
     const caller = appRouter.createCaller(publicContext());
     const result = await caller.catalog.list({ query: "" });

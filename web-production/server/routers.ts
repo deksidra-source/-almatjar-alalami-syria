@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, or } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, isNull, or } from "drizzle-orm";
 import { z } from "zod";
 import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
@@ -164,19 +164,29 @@ export const appRouter = router({
     }),
     vendorList: vendorProcedure.query(async ({ ctx }) => ctx.db.select().from(orders).where(eq(orders.vendorId, ctx.vendor.id)).orderBy(desc(orders.createdAt))),
     confirmPaid: vendorProcedure.input(z.object({ orderId: z.number() })).mutation(async ({ input, ctx }) => {
-      const result = await ctx.db.update(orders).set({ paymentStatus: "PAID", orderStatus: "PROCESSING" }).where(and(eq(orders.id, input.orderId), eq(orders.vendorId, ctx.vendor.id), eq(orders.paymentStatus, "PENDING")));
+      const result = await ctx.db.update(orders).set({ paymentStatus: "PAID", orderStatus: "PROCESSING" }).where(and(eq(orders.id, input.orderId), eq(orders.vendorId, ctx.vendor.id), eq(orders.paymentStatus, "PENDING"), inArray(orders.paymentMethod, ["SYRIATEL_CASH", "ECASH", "BANK_TRANSFER"])));
       if (!result[0].affectedRows) throw new Error("Order is not pending payment or does not belong to this vendor");
       return { success: true, paymentStatus: "PAID" as const, orderStatus: "PROCESSING" as const };
     }),
     markShipped: vendorProcedure.input(z.object({ orderId: z.number(), shippingProvider: z.string().min(2), waybillOrNotes: z.string().optional(), contactPhone: z.string().optional() })).mutation(async ({ input, ctx }) => {
-      const result = await ctx.db.update(orders).set({ orderStatus: "SHIPPED", shippingProvider: input.shippingProvider, waybillOrNotes: input.waybillOrNotes, contactPhone: input.contactPhone }).where(and(eq(orders.id, input.orderId), eq(orders.vendorId, ctx.vendor.id), or(eq(orders.orderStatus, "PROCESSING"), eq(orders.orderStatus, "PENDING"))));
+      const result = await ctx.db.update(orders).set({ orderStatus: "SHIPPED", shippingProvider: input.shippingProvider, waybillOrNotes: input.waybillOrNotes, contactPhone: input.contactPhone }).where(and(eq(orders.id, input.orderId), eq(orders.vendorId, ctx.vendor.id), or(eq(orders.orderStatus, "PROCESSING"), eq(orders.orderStatus, "PENDING")), or(eq(orders.paymentMethod, "COD"), eq(orders.paymentStatus, "PAID"))));
       if (!result[0].affectedRows) throw new Error("Order cannot be shipped from its current state");
       return { success: true, orderStatus: "SHIPPED" as const };
     }),
     markDelivered: vendorProcedure.input(z.object({ orderId: z.number() })).mutation(async ({ input, ctx }) => {
-      const result = await ctx.db.update(orders).set({ orderStatus: "DELIVERED" }).where(and(eq(orders.id, input.orderId), eq(orders.vendorId, ctx.vendor.id), eq(orders.orderStatus, "SHIPPED")));
-      if (!result[0].affectedRows) throw new Error("Order must be shipped before delivery");
-      return { success: true, orderStatus: "DELIVERED" as const };
+      return ctx.db.transaction(async tx => {
+        const order = (await tx.select().from(orders).where(and(eq(orders.id, input.orderId), eq(orders.vendorId, ctx.vendor.id), eq(orders.orderStatus, "SHIPPED"), isNull(orders.commissionDeductedAt))).limit(1))[0];
+        if (!order) throw new Error("Order must be shipped and not already settled");
+        const setting = (await tx.select().from(platformSettings).where(eq(platformSettings.key, "platform_commission_percent")).limit(1))[0];
+        const commissionRate = Math.max(0, Number(setting?.value ?? "0"));
+        const commissionAmount = (Number(order.grandTotal) * commissionRate / 100).toFixed(2);
+        if (Number(commissionAmount) > Number(ctx.vendor.prepaidWalletBalance)) throw new Error("Vendor prepaid wallet balance is insufficient");
+        const walletUpdate = await tx.update(vendors).set({ prepaidWalletBalance: (Number(ctx.vendor.prepaidWalletBalance) - Number(commissionAmount)).toFixed(2) }).where(and(eq(vendors.id, ctx.vendor.id), gte(vendors.prepaidWalletBalance, commissionAmount)));
+        if (!walletUpdate[0].affectedRows && Number(commissionAmount) > 0) throw new Error("Vendor prepaid wallet balance changed; retry");
+        const result = await tx.update(orders).set({ orderStatus: "DELIVERED", commissionAmount, commissionDeductedAt: new Date() }).where(and(eq(orders.id, input.orderId), eq(orders.vendorId, ctx.vendor.id), eq(orders.orderStatus, "SHIPPED"), isNull(orders.commissionDeductedAt)));
+        if (!result[0].affectedRows) throw new Error("Order was updated by another action");
+        return { success: true, orderStatus: "DELIVERED" as const, commissionAmount };
+      });
     }),
   }),
   chat: router({
@@ -196,9 +206,9 @@ export const appRouter = router({
   admin: router({
     subscriptionPolicy: adminProcedure.query(async () => {
       const db = await getDb();
-      if (!db) return { trialMonths: 3, monthlyFeeUsd: "5.00" };
-      const rows = await db.select().from(platformSettings).where(inArray(platformSettings.key, ["trial_months", "monthly_fee_usd"]));
-      return { trialMonths: Number(rows.find(row => row.key === "trial_months")?.value ?? 3), monthlyFeeUsd: rows.find(row => row.key === "monthly_fee_usd")?.value ?? "5.00" };
+      if (!db) return { trialMonths: 3, monthlyFeeUsd: "5.00", commissionPercent: "0.00" };
+      const rows = await db.select().from(platformSettings).where(inArray(platformSettings.key, ["trial_months", "monthly_fee_usd", "platform_commission_percent"]));
+      return { trialMonths: Number(rows.find(row => row.key === "trial_months")?.value ?? 3), monthlyFeeUsd: rows.find(row => row.key === "monthly_fee_usd")?.value ?? "5.00", commissionPercent: rows.find(row => row.key === "platform_commission_percent")?.value ?? "0.00" };
     }),
     updateSubscriptionPolicy: adminProcedure.input(z.object({ trialMonths: z.literal(3), monthlyFeeUsd: z.literal("5.00") })).mutation(async ({ input, ctx }) => {
       const db = await getDb();
@@ -206,6 +216,12 @@ export const appRouter = router({
       for (const [key, value] of [["trial_months", String(input.trialMonths)], ["monthly_fee_usd", input.monthlyFeeUsd]] as const) {
         await db.insert(platformSettings).values({ key, value, updatedBy: ctx.user.id }).onDuplicateKeyUpdate({ set: { value, updatedBy: ctx.user.id } });
       }
+      return input;
+    }),
+    updateCommissionPolicy: adminProcedure.input(z.object({ commissionPercent: z.string().regex(/^(100|[0-9]{1,2})(\.\d{1,2})?$/) })).mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database is not configured");
+      await db.insert(platformSettings).values({ key: "platform_commission_percent", value: input.commissionPercent, updatedBy: ctx.user.id }).onDuplicateKeyUpdate({ set: { value: input.commissionPercent, updatedBy: ctx.user.id } });
       return input;
     }),
   }),
