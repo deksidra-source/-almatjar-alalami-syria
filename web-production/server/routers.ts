@@ -87,10 +87,11 @@ export const appRouter = router({
     }),
   }),
   imageSearch: router({
-    analyze: protectedProcedure.input(z.object({ imageUrl: z.string().url().optional(), description: z.string().max(500).optional() })).mutation(async ({ input, ctx }) => {
+    analyze: protectedProcedure.input(z.object({ imageUrl: z.string().max(2_000_000).optional(), description: z.string().max(500).optional() })).mutation(async ({ input, ctx }) => {
       const db = await getDb();
       if (db) await db.insert(imageSearchRequests).values({ userId: ctx.user.id, imageUrl: input.imageUrl, queryText: input.description });
-      const result = await invokeLLM({ model: "gpt-5-mini", maxTokens: 220, messages: [{ role: "system", content: "أنت مساعد بحث بصري لمتجر عربي. اقترح كلمات بحث عربية قصيرة من وصف الصورة أو الوصف النصي فقط. لا تدّعي التعرف الدقيق على منتج غير واضح." }, { role: "user", content: input.description ? `الوصف: ${input.description}` : "اقترح كلمات بحث عامة لمنتج من صورة مرفوعة." }] });
+      const userContent = input.imageUrl ? [{ type: "text" as const, text: input.description ? `حلل الصورة واقترح كلمات بحث عربية قصيرة. اسم الملف: ${input.description}` : "حلل الصورة واقترح كلمات بحث عربية قصيرة." }, { type: "image_url" as const, image_url: { url: input.imageUrl, detail: "low" as const } }] : (input.description ? `الوصف: ${input.description}` : "اقترح كلمات بحث عامة لمنتج من صورة مرفوعة.");
+      const result = await invokeLLM({ model: "gpt-5-mini", maxTokens: 220, messages: [{ role: "system", content: "أنت مساعد بحث بصري لمتجر عربي. اقترح كلمات بحث عربية قصيرة من الصورة أو الوصف فقط. لا تدّعي التعرف الدقيق على منتج غير واضح." }, { role: "user", content: userContent }] });
       const content = result.choices[0]?.message.content;
       return { query: typeof content === "string" ? content : "منتج، متجر، شراء" };
     }),
