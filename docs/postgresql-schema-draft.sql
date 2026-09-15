@@ -29,8 +29,8 @@ CREATE TABLE vendors (
   store_name VARCHAR(150) NOT NULL,
   category vendor_category NOT NULL,
   commercial_register_doc VARCHAR(255),
-  trial_ends_at TIMESTAMPTZ NOT NULL DEFAULT (CURRENT_TIMESTAMP + INTERVAL '4 months'),
-  subscription_fee NUMERIC(10, 2) NOT NULL DEFAULT 20.00,
+  trial_ends_at TIMESTAMPTZ NOT NULL DEFAULT (CURRENT_TIMESTAMP + INTERVAL '3 months'),
+  subscription_fee NUMERIC(10, 2) NOT NULL DEFAULT 5.00,
   subscription_status subscription_status NOT NULL DEFAULT 'FREE_TRIAL',
   is_verified BOOLEAN NOT NULL DEFAULT FALSE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP

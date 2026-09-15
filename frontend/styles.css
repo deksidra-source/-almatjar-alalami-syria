@@ -150,12 +150,13 @@ h1 span { color: var(--ink); }
   .promotion-layout { grid-template-columns: 1fr; gap: 14px; }
   .cart-copy { text-align: center; }
   .cart-copy p { margin-inline: auto; }
-  .bottom-nav { position: fixed; right: 0; bottom: 0; left: 0; z-index: 12; display: grid; grid-template-columns: repeat(5, 1fr); align-items: end; height: 76px; padding: 9px 10px max(9px, env(safe-area-inset-bottom)); background: rgba(255, 253, 244, .96); border-top: 1px solid var(--line); box-shadow: 0 -14px 30px rgba(84, 45, 18, .09); backdrop-filter: blur(16px); }
+  .bottom-nav { position: fixed; right: 0; bottom: 0; left: 0; z-index: 12; display: grid; grid-template-columns: repeat(4, 1fr); align-items: end; height: 76px; padding: 9px 10px max(9px, env(safe-area-inset-bottom)); background: rgba(255, 253, 244, .96); border-top: 1px solid var(--line); box-shadow: 0 -14px 30px rgba(84, 45, 18, .09); backdrop-filter: blur(16px); }
   .bottom-nav a { display: grid; justify-items: center; gap: 2px; color: #9a8979; font-size: 8px; font-weight: 800; }
   .bottom-nav a span { font-size: 20px; line-height: 1.2; }
   .bottom-nav a.current { color: var(--burgundy); }
   .bottom-nav .cart-tab { align-self: start; justify-self: center; width: 52px; height: 52px; margin-top: -31px; color: #fff7db; background: var(--burgundy); border: 5px solid #fffbed; border-radius: 50%; box-shadow: 0 7px 17px rgba(100, 28, 44, .25); font-size: 24px; }
   .bottom-nav .cart-tab span { font-size: 23px; }
+  .bottom-nav .cart-tab small { display: block; margin-top: -2px; font-size: 8px; font-weight: 800; }
   main { padding-bottom: 30px; }
 }
 
