@@ -8,14 +8,29 @@ const port = Number(process.env.PORT || 4000);
 app.use(cors({ origin: process.env.CORS_ORIGIN?.split(",") || true, credentials: true }));
 app.use(express.json({ limit: "1mb" }));
 
-const promotionPrices = Object.freeze({ SMALL_STORE: 1, HEAVY_STORE: 10 });
 const PROMOTION_DURATION_DAYS = 7;
+const PROMOTION_STORE_TYPES = new Set(["SMALL_STORE", "HEAVY_STORE"]);
 
 function requireFields(body, fields) {
   const missing = fields.filter((field) => !body?.[field]);
   if (missing.length) {
     const error = new Error(`Missing fields: ${missing.join(", ")}`);
     error.status = 400;
+    throw error;
+  }
+}
+
+function normalizeStoreType(value) {
+  const storeType = String(value || "").trim().toUpperCase();
+  return PROMOTION_STORE_TYPES.has(storeType) ? storeType : null;
+}
+
+async function requireAdmin(adminId) {
+  requireFields({ adminId }, ["adminId"]);
+  const result = await query("SELECT id FROM users WHERE id = $1 AND role = 'ADMIN' AND deleted_at IS NULL", [adminId]);
+  if (!result.rowCount) {
+    const error = new Error("A valid admin account is required");
+    error.status = 403;
     throw error;
   }
 }
@@ -37,15 +52,48 @@ app.get("/api/catalog", async (req, res, next) => {
   } catch (error) { next(error); }
 });
 
+app.get("/api/promotion-pricing", async (_req, res, next) => {
+  try {
+    const result = await query("SELECT store_type, price_usd, updated_at FROM promotion_pricing ORDER BY store_type");
+    res.json({ pricing: result.rows });
+  } catch (error) { next(error); }
+});
+
+app.get("/api/admin/promotion-pricing", async (req, res, next) => {
+  try {
+    await requireAdmin(req.query.adminId);
+    const result = await query("SELECT store_type, price_usd, updated_by, updated_at FROM promotion_pricing ORDER BY store_type");
+    res.json({ pricing: result.rows });
+  } catch (error) { next(error); }
+});
+
+app.patch("/api/admin/promotion-pricing/:storeType", async (req, res, next) => {
+  try {
+    const storeType = normalizeStoreType(req.params.storeType);
+    if (!storeType) return res.status(400).json({ error: "Unsupported store type" });
+    await requireAdmin(req.body?.adminId);
+    const price = Number(req.body?.priceUsd);
+    if (!Number.isFinite(price) || price < 0) return res.status(400).json({ error: "Price must be a non-negative number" });
+    const result = await query(`INSERT INTO promotion_pricing (store_type, price_usd, updated_by, updated_at)
+      VALUES ($1, $2, $3, CURRENT_TIMESTAMP)
+      ON CONFLICT (store_type) DO UPDATE SET price_usd = EXCLUDED.price_usd, updated_by = EXCLUDED.updated_by, updated_at = CURRENT_TIMESTAMP
+      RETURNING store_type, price_usd, updated_by, updated_at`, [storeType, price, req.body.adminId]);
+    res.json({ pricing: result.rows[0] });
+  } catch (error) { next(error); }
+});
+
 app.post("/api/promotion-requests", async (req, res, next) => {
   try {
     requireFields(req.body, ["vendorId", "storeType"]);
-    const { vendorId, productId = null, storeType, paymentProvider = "MANUAL" } = req.body;
-    if (!(storeType in promotionPrices)) return res.status(400).json({ error: "Unsupported store type" });
+    const { vendorId, productId = null, paymentProvider = "MANUAL" } = req.body;
+    const storeType = normalizeStoreType(req.body.storeType);
+    if (!storeType) return res.status(400).json({ error: "Unsupported store type" });
     if (paymentProvider !== "MANUAL") return res.status(400).json({ error: "Electronic providers are not enabled yet" });
+    const pricing = await query("SELECT price_usd FROM promotion_pricing WHERE store_type = $1", [storeType]);
+    if (!pricing.rowCount) return res.status(409).json({ error: "Promotion price is not configured by an administrator" });
     const duplicate = await query("SELECT id FROM promotion_requests WHERE vendor_id = $1 AND product_id IS NOT DISTINCT FROM $2 AND status IN ('PENDING', 'ACTIVE') LIMIT 1", [vendorId, productId]);
     if (duplicate.rowCount) return res.status(409).json({ error: "A pending or active promotion already exists" });
-    const result = await query(`INSERT INTO promotion_requests (vendor_id, product_id, status, payment_provider, price_usd, duration_days) VALUES ($1, $2, 'PENDING', 'MANUAL', $3, $4) RETURNING id, status, price_usd, duration_days, payment_provider, created_at`, [vendorId, productId, promotionPrices[storeType], PROMOTION_DURATION_DAYS]);
+    const result = await query(`INSERT INTO promotion_requests (vendor_id, product_id, status, payment_provider, price_usd, duration_days) VALUES ($1, $2, 'PENDING', 'MANUAL', $3, $4) RETURNING id, status, price_usd, duration_days, payment_provider, created_at`, [vendorId, productId, pricing.rows[0].price_usd, PROMOTION_DURATION_DAYS]);
     res.status(201).json({ request: result.rows[0] });
   } catch (error) { next(error); }
 });

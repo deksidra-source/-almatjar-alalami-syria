@@ -54,12 +54,15 @@ const promotionPriceValue = document.querySelector("#promotion-price-value");
 const promotionItem = document.querySelector("#promotion-item");
 const promotionDuration = document.querySelector("#promotion-duration");
 const promotionPaymentInputs = document.querySelectorAll('input[name="promotion-payment"]');
+const promotionPricing = { small: null, large: null };
+const apiBase = window.AL_MATJAR_API_BASE || window.API_BASE_URL || "http://localhost:4000";
 
 function getPromotionPrice() {
-  return promotionStoreType?.value === "large" ? 10 : 1;
+  return promotionPricing[promotionStoreType?.value || "small"];
 }
 function refreshPromotionPrice() {
-  if (promotionPriceValue) promotionPriceValue.textContent = `${getPromotionPrice()} دولار`;
+  const price = getPromotionPrice();
+  if (promotionPriceValue) promotionPriceValue.textContent = price === null ? "غير محدد" : `${price} دولار`;
   if (promotionDuration) {
     promotionDuration.value = "7";
     promotionDuration.readOnly = true;
@@ -68,6 +71,12 @@ function refreshPromotionPrice() {
 }
 promotionStoreType?.addEventListener("change", refreshPromotionPrice);
 refreshPromotionPrice();
+fetch(`${apiBase}/api/promotion-pricing`).then((response) => response.ok ? response.json() : Promise.reject(new Error("pricing unavailable"))).then(({ pricing = [] }) => {
+  pricing.forEach(({ store_type: storeType, price_usd: price }) => {
+    promotionPricing[storeType === "HEAVY_STORE" ? "large" : "small"] = Number(price);
+  });
+  refreshPromotionPrice();
+}).catch(() => showToast("أسعار الإعلان غير متاحة؛ يحددها المدير قبل إرسال الطلب."));
 promotionForm?.addEventListener("submit", (event) => {
   event.preventDefault();
   const item = promotionItem?.value.trim();
@@ -79,6 +88,10 @@ promotionForm?.addEventListener("submit", (event) => {
   }
   if (selectedPayment !== "manual") {
     showToast("Sham Cash وiCash غير مفعّلين حاليًا؛ اختر الدفع اليدوي.");
+    return;
+  }
+  if (getPromotionPrice() === null) {
+    showToast("لم يحدد المدير سعر هذا النوع من المتاجر بعد.");
     return;
   }
   const request = { id: `local-${Date.now()}`, item, storeType: promotionStoreType?.value || "small", priceUsd: getPromotionPrice(), durationDays: 7, paymentProvider: "manual", status: "pending", createdAt: new Date().toISOString() };

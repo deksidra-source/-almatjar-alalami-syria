@@ -89,6 +89,14 @@ CREATE TABLE chat_messages (
   created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+-- أسعار الإعلان إعدادات إدارية وليست قيمًا ثابتة في الكود.
+CREATE TABLE promotion_pricing (
+  store_type VARCHAR(20) PRIMARY KEY CHECK (store_type IN ('SMALL_STORE', 'HEAVY_STORE')),
+  price_usd NUMERIC(10, 2) NOT NULL CHECK (price_usd >= 0),
+  updated_by UUID REFERENCES users(id) ON DELETE SET NULL,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE INDEX products_vendor_idx ON products(vendor_id);
 CREATE INDEX products_category_idx ON products(category_id);
 CREATE INDEX orders_customer_idx ON orders(customer_id);
